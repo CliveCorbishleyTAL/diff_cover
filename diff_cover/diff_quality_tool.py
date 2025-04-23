@@ -28,9 +28,10 @@ from diff_cover.diff_cover_tool import (
     JSON_REPORT_HELP,
     MARKDOWN_REPORT_HELP,
     QUIET_HELP,
+    DIFF_FILE_HELP,
 )
 from diff_cover.diff_reporter import GitDiffReporter
-from diff_cover.git_diff import GitDiffTool
+from diff_cover.git_diff import GitDiffFileTool, GitDiffTool
 from diff_cover.git_path import GitPathTool
 from diff_cover.report_generator import (
     HtmlQualityReportGenerator,
@@ -204,6 +205,10 @@ def parse_quality_args(argv):
         "--report-root-path", help=REPORT_ROOT_PATH_HELP, metavar="ROOT_PATH"
     )
 
+    parser.add_argument(
+        "--diff-file", metavar="DIFF_FILE", type=str, help=DIFF_FILE_HELP
+    )
+
     defaults = {
         "ignore_whitespace": False,
         "compare_branch": "origin/main",
@@ -224,6 +229,7 @@ def parse_quality_args(argv):
 def generate_quality_report(
     tool,
     compare_branch,
+    diff_tool,
     html_report=None,
     json_report=None,
     markdown_report=None,
@@ -243,9 +249,10 @@ def generate_quality_report(
     supported_extensions = (
         getattr(tool, "supported_extensions", None) or tool.driver.supported_extensions
     )
+
     diff = GitDiffReporter(
         compare_branch,
-        git_diff=GitDiffTool(diff_range_notation, ignore_whitespace),
+        git_diff=diff_tool,
         ignore_staged=ignore_staged,
         ignore_unstaged=ignore_unstaged,
         include_untracked=include_untracked,
@@ -303,6 +310,14 @@ def main(argv=None, directory=None):
     fail_under = arg_dict.get("fail_under")
     tool = arg_dict["violations"]
     user_options = arg_dict.get("options")
+
+    if not arg_dict["diff_file"]:
+        diff_tool = GitDiffTool(
+            arg_dict["diff_range_notation"], arg_dict["ignore_whitespace"]
+        )
+    else:
+        diff_tool = GitDiffFileTool(arg_dict["diff_file"])
+
     if user_options:
         # strip quotes if present
         first_char = user_options[0]
@@ -353,6 +368,7 @@ def main(argv=None, directory=None):
             percent_passing = generate_quality_report(
                 reporter,
                 arg_dict["compare_branch"],
+                diff_tool,
                 html_report=arg_dict["html_report"],
                 json_report=arg_dict["json_report"],
                 markdown_report=arg_dict["markdown_report"],
